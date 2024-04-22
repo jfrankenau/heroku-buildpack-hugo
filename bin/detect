@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# bin/detect <build-dir>
+set -eo pipefail
+
+BUILD_DIR=$1
+
+if [ ! -d "$BUILD_DIR/content" ]; then
+    exit 1
+fi
+
+echo "hugo static site"
+exit 0

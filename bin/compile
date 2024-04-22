@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# bin/detect <build-dir> <cache-dir> <env-dir>
+set -eo pipefail
+
+BUILD_DIR=$1
+CACHE_DIR=$2
+
+cd "${CACHE_DIR}"
+REPOSITORY="https://github.com/gohugoio/hugo"
+ARCH=$( uname -r | sed 's/^.*-//' )
+LATEST_VERSION=$( curl -si "${REPOSITORY}/releases/latest" | grep location | tr -d '\n\r' | sed 's/^.*v//' )
+ARCHIVE="hugo_extended_${LATEST_VERSION}_linux-${ARCH}.tar.gz"
+if [ -f "${ARCHIVE}" ]; then
+    echo "-----> Reusing hugo binary from cache"
+else
+    echo "-----> Downloading latest hugo binary v${LATEST_VERSION} via http"
+    # remove any old archives first
+    rm -f hugo_extended_*.tar.gz
+    curl -sSL "${REPOSITORY}/releases/download/v${LATEST_VERSION}/${ARCHIVE}" -o "${ARCHIVE}"
+fi
+mkdir -p bin
+tar xzf "${ARCHIVE}" -C bin hugo
+
+cd "${BUILD_DIR}"
+HUGO_ENVIRONMENT=${HUGO_ENVIRONMENT:=production}
+echo "-----> Build static site for ${HUGO_ENVIRONMENT} environment"
+rm -rf public
+"${CACHE_DIR}/bin/hugo" --environment "${HUGO_ENVIRONMENT}"
+
+exit 0
