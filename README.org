@@ -1,0 +1,182 @@
+[[./logo.png]]
+
+* What is it?
+
+This is a third party [[https://devcenter.heroku.com/articles/buildpacks][Heroku buildpack]] to deploy sites using the
+static site generator [[https://gohugo.io/][Hugo]].
+
+It's aimed to be used with [[https://dokku.com][Dokku]], but should
+work with [[https://www.heroku.com/][Heroku]] as well.
+
+The buildpack will create all static files using Hugo, but depends on
+another buildpack to actually serve these, like [[https://github.com/dokku/heroku-buildpack-nginx][heroku-buildpack-nginx]]
+for Dokku.
+
+* How to use it?
+
+** Hugo project
+
+If you don't have an [[https://gohugo.io/][Hugo]] project already, see the [[https://gohugo.io/getting-started/quick-start][Quick Start]]
+documentation to create a site on your machine in minutes.
+
+The following assumes that a directory structure has been created in
+the ~quickstart~ directory and that some content was added as well,
+like this for example:
+
+#+BEGIN_SRC bash
+  hugo new content posts/my-first-post.md
+#+END_SRC
+
+** Dokku application
+
+*** Create a application on the Dokku server
+
+#+BEGIN_SRC shell
+  dokku apps:create quickstart
+#+END_SRC
+
+Set the NGINX_ROOT environment variable for that application to where
+Hugo puts all the static files:
+
+#+BEGIN_SRC shell
+  dokku config:set quickstart NGINX_ROOT=public
+#+END_SRC
+
+*** Add the remote on your local machine
+
+This depends on your domain of your Dokku server:
+
+#+BEGIN_SRC shell
+  git remote add dokku dokku@dokku.me:quickstart
+#+END_SRC
+
+See [[https://dokku.com/docs/deployment/application-deployment/#deploy-the-app][Deploy the app]] from the Dokku documentation.
+
+*** Set buildpacks
+
+Multiple buildpacks are needed for deployment. To add them to the
+Dokku app, you could either use ~dokku buildpack:add quickstart~ or
+use the ~.buildpacks~ file.
+
+#+BEGIN_SRC shell
+  echo 'https://github.com/e11bits/heroku-buildpack-hugo' > .buildpacks
+  echo 'https://github.com/dokku/heroku-buildpack-nginx' >> .buildpacks
+#+END_SRC
+
+See [[https://dokku.com/docs/deployment/builders/herokuish-buildpacks/#adding-custom-buildpacks][Adding custom buildpacks]] from the Dokku documentation.
+
+It's also necessary for ~heroku-buildpack-nginx~ that there is a
+~.static~ file present (not the static directory created by Hugo).
+
+#+BEGIN_SRC shell
+  echo 'This is a static app' > .static
+#+END_SRC
+
+See [[https://github.com/dokku/heroku-buildpack-nginx?tab=readme-ov-file#dokku][trigger detection]] of ~heroku-buildpack-nginx~.
+
+** Deployment
+
+As usual:
+
+#+BEGIN_SRC shell
+  git push dokku main
+#+END_SRC
+
+* How to configure it?
+  The buildpack can be configured by setting environment variables for
+  the Dokku app like this:
+  #+BEGIN_SRC shell
+    dokku config:set quickstart HUGO_ENVIRONMENT=staging
+  #+END_SRC
+  - HUGO_ENVIRONMENT (default: production) :: This can be used to set
+    the environment for Hugo, if a configuration directory is used.
+
+    #+BEGIN_EXAMPLE
+    quickstart/
+    └── config/
+        ├── _default/
+        │   ├── hugo.toml
+        │   ...
+        ├── staging/
+        │   ├── hugo.toml
+        │   ...
+        └── production/
+            ├── params.toml
+            ...
+    #+END_EXAMPLE
+
+    This setting will be ignored, if there is only a single
+    configuration file at the root of the Hugo project.
+    
+    See [[https://gohugo.io/getting-started/configuration/#configuration-directory][configuration directory]] from the Hugo documentation.
+
+* How does it work?
+  1. buildpack will check if there is a ~content~ directory or the
+     deployment will fail
+     #+BEGIN_EXAMPLE
+     -----> Multipack app detected
+     =====> Downloading Buildpack: https://github.com/e11bits/heroku-buildpack-hugo
+     remote:  !     Failure during app build
+     #+END_EXAMPLE
+  2. latest binary version of Hugo will be downloaded and installed if
+     not already present
+  3. an existing ~public~ directory will be deleted
+  4. Hugo will be used to create a new set of static files in ~public~
+     like this:
+     #+BEGIN_SRC shell
+       hugo --environment $HUGO_ENVIRONMENT
+     #+END_SRC
+
+* What to keep in mind?
+  - If the deployed site looks different from what you see locally
+    with ~hugo server~, it might be because the buildpack _always_
+    uses the latest version of Hugo. You can check that by looking at
+    the deployment message during a push:
+    #+BEGIN_EXAMPLE
+    =====> Detected Framework: hugo static site
+    -----> Downloading latest hugo binary v0.125.3 via http
+    #+END_EXAMPLE
+  - You don't want commit your local ~public~ directory. Anything in
+    there will be deleted before Hugo is used to create a new set of
+    static files in ~public~.
+
+    In order to circumvent this pitfall, you could add the ~public~
+    directory (and other Hugo specific files) to .gitignore:
+
+    #+BEGIN_SRC bash
+      curl -sL https://www.toptal.com/developers/gitignore/api/hugo >> .gitignore
+    #+END_SRC
+
+* Are there alternatives?
+  There are at least three other buildpacks that aim to support
+  deployment of a Hugo site on Dokku/Heroku, that I know of. Although
+  they did not work for me, I took some of their ideas I've seen
+  there.
+
+  - [[https://github.com/roperzh/heroku-buildpack-hugo][heroku-buildpack-hugo]] :: This seems to be the first buildpack
+    of that kind. What didn't work for me:
+    - fails to deploy a standard Hugo project with an ~hugo.toml~
+      configuration, because it expects some ~config.*~ file
+    - fails if it can't install an ancient version of Hugo by default
+      and the version has to be explicitly set via a environment
+      variable
+    - seems to be assuming ~static~ instead of ~public~ as the
+      directory for Hugo static files
+    - serves the files using python ~SimpleHTTPServer~ in the end
+  - [[https://github.com/Valdomar/buildpack-hugo][buildpack-hugo]] :: This seems to be a fork of the former. From this
+    I took the approach to use two buildpacks. Things lacking for me:
+    - every time installs ~linuxbrew~ and then installs hugo without
+      any caching
+    - always includes content marked as draft without the option to
+      change that
+    - doesn't clean ~public~ before creating new static files. This
+      should be done, because as it is mentioned in [[https://gohugo.io/getting-started/usage/#build-your-site][Build your site]] in
+      the Hugo documentation:
+
+      #+BEGIN_QUOTE
+      Hugo does not clear the public directory before building your
+      site. Existing files are overwritten, but not deleted.
+      #+END_QUOTE
+  - [[https://github.com/GuidedTrack/heroku-buildpack-hugo-binary][heroku-buildpack-hugo-binary]] :: Written in ruby and no
+    documentation at all. Can't say how and if it works.
+ 
