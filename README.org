@@ -12,6 +12,8 @@ The buildpack will create all static files using Hugo, but depends on
 another buildpack to actually serve these, like [[https://github.com/dokku/heroku-buildpack-nginx][heroku-buildpack-nginx]]
 for Dokku.
 
+Here is a [[https://quickstart.e11bits.com][demo]] of a Hugo site deployed on a Dokku server.
+
 * How to use it?
 
 ** Hugo project
