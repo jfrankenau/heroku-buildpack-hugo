@@ -130,6 +130,9 @@ As usual:
      #+END_SRC
 
 * What to keep in mind?
+  - Deployment will not work if you are using Go modules to install
+    themes. In that case you either have to install the theme using
+    ~git submodule~ or by manually downloading it.
   - If the deployed site looks different from what you see locally
     with ~hugo server~, it might be because the buildpack _always_
     uses the latest version of Hugo. You can check that by looking at
