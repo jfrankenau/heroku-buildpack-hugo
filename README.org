@@ -165,8 +165,6 @@ As usual:
     - fails if it can't install an ancient version of Hugo by default
       and the version has to be explicitly set via a environment
       variable
-    - seems to be assuming ~static~ instead of ~public~ as the
-      directory for Hugo static files
     - serves the files using python ~SimpleHTTPServer~ in the end
   - [[https://github.com/Valdomar/buildpack-hugo][buildpack-hugo]] :: This seems to be a fork of the former. From this
     I took the approach to use two buildpacks. Things lacking for me:
