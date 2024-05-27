@@ -7,7 +7,11 @@ CACHE_DIR=$2
 
 cd "${CACHE_DIR}"
 REPOSITORY="https://github.com/gohugoio/hugo"
-ARCH=$( uname -r | sed 's/^.*-//' )
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64) ARCH="amd64" ;;
+    arm)    ARCH="arm64" ;;
+esac
 LATEST_VERSION=$( curl -si "${REPOSITORY}/releases/latest" | grep location | tr -d '\n\r' | sed 's/^.*v//' )
 ARCHIVE="hugo_extended_${LATEST_VERSION}_linux-${ARCH}.tar.gz"
 if [ -f "${ARCHIVE}" ]; then
